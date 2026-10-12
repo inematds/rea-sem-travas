@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>REA sin restricciones — tu agente de ingeniería inversa en tu computadora</title>
+<meta name="description" content="Cómo recrear una app de computadora a tu manera con un modelo abierto sin restricciones en Ollama, el harness local dsh y REA (MCP que conecta Ghidra). Paso a paso, prompts, límites y uso responsable.">
+<link rel="alternate" hreflang="pt-BR" href="https://inematds.github.io/rea-sem-travas/guia/">
+<link rel="alternate" hreflang="en" href="https://inematds.github.io/rea-sem-travas/guia/en/">
+<link rel="alternate" hreflang="es" href="https://inematds.github.io/rea-sem-travas/guia/es/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0c0c10; --bg2:#14141b; --card:#16161e; --line:#272730;
+    --txt:#e9e9ee; --mut:#9a9aa6; --amb:#E2A23B; --amb2:#f0c070; --sky:#38bdf8; --pro:#cbd5e1;
+    color-scheme:dark;
+  }
+  body.light{
+    --bg:#f6f7f9; --bg2:#eceef2; --card:#ffffff; --line:#e1e3ea;
+    --txt:#1a1a22; --mut:#5b5b68; --amb:#b9791d; --amb2:#a16207; --sky:#0369a1; --pro:#b45309;
+    color-scheme:light;
+  }
+  body.light .hero .glow{opacity:.5}
+  body.light pre{background:#0e0e14;color:#d6d6e0}
+  body.light pre .c{color:#8a8a98}
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--txt);font:16px/1.65 Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  h1,h2,h3{font-family:Sora,sans-serif;line-height:1.15;margin:0}
+  a{color:var(--amb);text-decoration:none}
+  code,pre{font-family:"JetBrains Mono",monospace}
+  .wrap{max-width:1160px;margin:0 auto;padding:0 22px}
+  .mut{color:var(--mut)} .amb{color:var(--amb)}
+  .chip{display:inline-block;font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--amb);font-weight:600;font-family:Sora}
+  nav{position:sticky;top:0;z-index:30;backdrop-filter:blur(12px);background:rgba(12,12,16,.78);border-bottom:1px solid var(--line)}
+  nav .wrap{display:flex;align-items:center;gap:22px;height:60px}
+  nav .brand{display:flex;align-items:center;gap:8px;font-family:Sora;font-weight:800;letter-spacing:-.02em;color:var(--amb)}
+  nav .brand .emoji{font-size:1.25rem}
+  nav .sep{color:var(--mut);opacity:.45}
+  nav .inema{color:var(--sky);font-weight:600;font-size:.88rem;font-family:Sora}
+  nav .inema:hover{filter:brightness(1.15)}
+  nav .pro{color:var(--pro);font-weight:600;font-size:.88rem;font-family:Sora}
+  nav .pro:hover{filter:brightness(1.15)}
+  nav .clubpro{display:inline-flex;align-items:center;gap:6px}
+  nav .links{margin-left:auto;display:flex;align-items:center;gap:20px;font-size:.92rem}
+  nav .links a.sec{color:var(--mut);white-space:nowrap} nav .links a.sec:hover{color:var(--txt)}
+  nav .brand{white-space:nowrap} @media(max-width:1100px){nav .links a.sec.opt{display:none}}
+  .lang{display:inline-flex;gap:2px;font-family:Sora;font-size:.78rem}
+  .lang a{color:var(--mut);padding:.2em .45em;border-radius:6px} .lang a.on{color:var(--amb);background:rgba(226,162,59,.12)}
+  .tgl{background:var(--bg2);border:1px solid var(--line);color:var(--txt);width:38px;height:38px;border-radius:10px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:1.05rem}
+  .tgl:hover{border-color:var(--amb)}
+  .btn{display:inline-block;background:var(--amb);color:#1a1206;font-weight:600;padding:.6em 1.05em;border-radius:10px;font-family:Sora}
+  .btn.ghost{background:transparent;color:var(--txt);border:1px solid var(--line)}
+  @media(max-width:760px){nav .links a.sec{display:none}}
+  @media(max-width:520px){nav .wrap{gap:8px;padding:8px 14px;height:auto;flex-wrap:wrap} nav .links{gap:8px;margin-left:0;width:100%;justify-content:space-between} nav .btn{padding:.45em .7em;font-size:.82rem} .tgl{width:34px;height:34px}}
+  .hero{position:relative;overflow:hidden;border-bottom:1px solid var(--line)}
+  .hero .glow{position:absolute;inset:-40% -20% auto auto;width:70%;height:600px;background:radial-gradient(closest-side,rgba(226,162,59,.22),transparent 70%);pointer-events:none}
+  .hero .wrap{display:grid;grid-template-columns:1.1fr .9fr;gap:40px;align-items:center;padding:74px 22px}
+  .hero h1{font-size:clamp(2.2rem,5vw,3.5rem);font-weight:800;letter-spacing:-.025em}
+  .hero p.lead{font-size:1.18rem;color:var(--mut);margin:1.1em 0 1.6em;max-width:34ch}
+  .hero .cta{display:flex;gap:12px;flex-wrap:wrap}
+  .hero figure{margin:0;border-radius:16px;overflow:hidden;border:1px solid var(--line);box-shadow:0 30px 80px -30px #000}
+  .hero figure img{width:100%;display:block}
+  .resumo{padding:38px 0 34px;border-bottom:1px solid var(--line)}
+  .resumo p{font-size:1.12rem;line-height:1.7;max-width:74ch;margin:.55em 0 0}
+  @media(max-width:780px){.hero .wrap{grid-template-columns:1fr;padding:48px 22px}}
+  section{padding:62px 0;border-bottom:1px solid var(--line)}
+  section h2{font-size:clamp(1.5rem,3.4vw,2.1rem);font-weight:800;letter-spacing:-.02em}
+  section .sub{color:var(--mut);margin:.6em 0 2em;max-width:62ch}
+  .grid{display:grid;gap:16px}
+  .g3{grid-template-columns:repeat(3,1fr)} .g4{grid-template-columns:repeat(4,1fr)} .g2{grid-template-columns:repeat(2,1fr)}
+  @media(max-width:820px){.g3,.g4{grid-template-columns:1fr 1fr}}
+  @media(max-width:540px){.g2,.g3,.g4{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px}
+  .card h3{font-size:1.05rem;margin-bottom:.4em}
+  .card p{color:var(--mut);font-size:.92rem;margin:0}
+  .card ul{color:var(--mut);font-size:.92rem;margin:.4em 0 0;padding-left:1.1em}
+  .num{display:inline-flex;width:30px;height:30px;align-items:center;justify-content:center;border-radius:8px;background:rgba(226,162,59,.14);color:var(--amb);font-family:Sora;font-weight:800;font-size:.9rem;margin-bottom:.7em}
+  .flow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+  .flow span{background:var(--bg2);border:1px solid var(--line);border-radius:999px;padding:.45em .9em;font-size:.85rem;font-family:Sora;font-weight:600}
+  .flow .arr{color:var(--amb);border:none;background:none;padding:0 .1em}
+  pre{background:#0a0a0e;border:1px solid var(--line);border-radius:12px;padding:16px 18px;overflow:auto;font-size:.86rem;line-height:1.6;color:#d6d6e0}
+  pre .c{color:#6f6f7c} pre .k{color:var(--amb2)} pre .s{color:#9ece6a}
+  .step{display:grid;grid-template-columns:46px minmax(0,1fr);gap:16px;margin-bottom:26px}
+  .step>div,.card{min-width:0}
+  p code,li code,td code{overflow-wrap:anywhere}
+  .step .b{width:46px;height:46px;border-radius:12px;background:var(--amb);color:#1a1206;font-family:Sora;font-weight:800;font-size:1.25rem;display:flex;align-items:center;justify-content:center}
+  .step h3{font-size:1.12rem;margin-bottom:.3em}
+  .step p{color:var(--mut);margin:.2em 0 .7em}
+  .phase{display:flex;gap:14px;padding:16px 0;border-bottom:1px solid var(--line)}
+  .phase:last-child{border:none}
+  .phase .tag{flex:0 0 92px;font-family:Sora;font-weight:800;color:var(--amb)}
+  .phase .d strong{display:block;margin-bottom:.2em}
+  .phase .d span{color:var(--mut);font-size:.92rem}
+  footer{padding:46px 0;text-align:center;color:var(--mut);font-size:.9rem}
+  .pill{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:.3em .8em;font-size:.78rem;color:var(--mut);margin:0 4px}
+  /* tabelas e avisos (acrescimo deste guia) */
+  .tblw{overflow-x:auto;border:1px solid var(--line);border-radius:14px}
+  table{width:100%;border-collapse:collapse;font-size:.9rem;min-width:620px}
+  th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-family:Sora;font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--amb);background:var(--bg2)}
+  tr:last-child td{border-bottom:none}
+  td{color:var(--mut)} td strong{color:var(--txt)}
+  .warn{border-left:3px solid var(--amb);background:var(--card);border-radius:0 12px 12px 0;padding:14px 18px;margin:18px 0;color:var(--mut);font-size:.95rem}
+  .warn strong{color:var(--txt)}
+  .tag-ok,.tag-no{display:inline-block;font-family:Sora;font-size:.7rem;font-weight:700;padding:.15em .55em;border-radius:6px;white-space:nowrap}
+  .tag-ok{background:rgba(158,206,106,.14);color:#9ece6a}
+  .tag-no{background:rgba(226,162,59,.14);color:var(--amb)}
+  .check li{margin:.35em 0;color:var(--mut)} .check li strong{color:var(--txt)}
+</style>
+</head>
+<body>
+
+<nav><div class="wrap">
+  <a class="brand" href="#top"><span class="emoji">🔓</span> REA sin trabas</a>
+  <span class="sep">|</span>
+  <span class="clubpro">
+    <a class="inema" href="https://inema.club" target="_blank" rel="noopener">INEMA.CLUB</a>
+    <span class="sep">-</span>
+    <a class="pro" href="https://inema.pro" target="_blank" rel="noopener">PRO</a>
+  </span>
+  <div class="links">
+    <a class="sec" href="#oque">Qué es</a>
+    <a class="sec opt" href="#modelos">Modelos</a>
+    <a class="sec" href="#guia">Paso a paso</a>
+    <a class="sec opt" href="#problemas">Problemas</a>
+    <a class="sec" href="#responsavel">Uso responsable</a>
+    <span class="lang"><a href="../">PT</a><a href="../en/">EN</a><a class="on" href="./">ES</a></span>
+    <button class="tgl" id="themeToggle" aria-label="Cambiar tema" title="Cambiar tema">🌙</button>
+    <a class="btn" href="https://github.com/inematds/rea-sem-travas" target="_blank" rel="noopener">GitHub</a>
+  </div>
+</div></nav>
+
+<header class="hero" id="top">
+  <div class="glow"></div>
+  <div class="wrap">
+    <div>
+      <span class="chip">Cómo hacerlo · modelo abierto + harness local + REA</span>
+      <h1>Rompe la restricción: tu agente <span class="amb">sin trabas</span>, en tu computadora</h1>
+      <p class="lead">Un modelo abierto que no rechaza la ingeniería inversa legítima, el harness dsh en local y REA conectando Ghidra. Le indicas una app y pides tu propia versión.</p>
+      <div class="cta">
+        <a class="btn" href="#guia">Empezar el paso a paso</a>
+        <a class="btn ghost" href="https://github.com/inematds/rea-sem-travas" target="_blank" rel="noopener">Ver en GitHub</a>
+      </div>
+    </div>
+    <figure><img src="../assets/banner-es.jpg" alt="Tu agente sin trabas: modelo abierto + harness local + REA"></figure>
+  </div>
+</header>
+
+<section id="resumo" class="resumo"><div class="wrap">
+  <span class="chip">En resumen</span>
+  <p>Esta es una guía para recrear un programa de computadora a tu manera usando tres piezas abiertas: un harness de agente local (el <strong>dsh</strong>, agente de código de DeepSeek), un <strong>modelo abierto «sin trabas»</strong> que se ejecuta en Ollama y <strong>REA</strong>, que le da al agente herramientas de ingeniería inversa como Ghidra. Sirve para quienes programan o estudian y quieren entender cómo funciona una app y hacer su propia versión, sin depender de modelos en la nube que a veces rechazan la solicitud. Todo se ejecuta en tu máquina: necesitas Docker, Ollama, Node 22 y memoria para un modelo de 14 a 24 GB. Espera llegar a alrededor del 80 % de la app, no a los últimos detalles.</p>
+</div></section>
+
+<section id="oque"><div class="wrap">
+  <span class="chip">Qué es</span>
+  <h2>Tres piezas que encajan</h2>
+  <p class="sub">El modelo es el cerebro, el harness es el cuerpo con las herramientas y REA son los ojos que ven dentro de la app compilada.</p>
+  <figure style="margin:0 0 26px;border-radius:16px;overflow:hidden;border:1px solid var(--line);box-shadow:0 30px 80px -30px #000"><img src="../assets/banner-grade-es.jpg" alt="Harness local, modelo sin trabas, REA + Ghidra, elige el objetivo, itera, uso responsable" loading="lazy" style="width:100%;display:block"></figure>
+  <div class="grid g3">
+    <div class="card"><h3>🧰 Harness local (dsh)</h3><p>El banco de trabajo donde vive el agente: lee y escribe archivos, ejecuta comandos y llama a herramientas MCP. Aquí se ejecuta en un contenedor, solo en la dirección local, y permite cambiar el modelo.</p></div>
+    <div class="card"><h3>🧠 Modelo sin trabas</h3><p>Una versión «abliterated» de un modelo abierto: le quitaron el reflejo de rechazar. Se ejecuta en Ollama en tu máquina, sin clave de API y sin enviar nada afuera.</p></div>
+    <div class="card"><h3>🔍 REA + Ghidra</h3><p>REA (Reverse Engineer Anything) es un servidor MCP y una línea de comandos que proporcionan al agente el análisis de la app: módulos, funciones, conexiones, con evidencia y límites.</p></div>
+  </div>
+</div></section>
+<section id="fluxo"><div class="wrap">
+  <span class="chip">Cómo funciona</span>
+  <h2>De la app cerrada a tu versión</h2>
+  <p class="sub">El agente no necesita ser genial: REA ya organiza las herramientas y el modelo solo ejecuta. Por eso un modelo abierto de tamaño medio puede con buena parte del trabajo.</p>
+  <div class="flow">
+    <span>Señalas la app</span><span class="arr">→</span>
+    <span>dsh (harness)</span><span class="arr">→</span>
+    <span>modelo en Ollama</span><span class="arr">→</span>
+    <span>REA</span><span class="arr">→</span>
+    <span>Ghidra o análisis JS</span><span class="arr">→</span>
+    <span>evidencia</span><span class="arr">→</span>
+    <span>código nuevo, desde cero</span><span class="arr">→</span>
+    <span>pruebas e iteras</span>
+  </div>
+  <div class="grid g2" style="margin-top:26px">
+    <div class="card"><h3>🎬 El ejemplo del video de referencia</h3><p>El reproductor de video de Mac (QuickTime) solo ofrece unas pocas velocidades fijas. El agente estudió la app y creó una nueva, con otro nombre ("Tempo") y otro ícono, con velocidad granular, ondas de audio y ajuste de tono. Unos 80% salieron en un solo pedido; el resto fue fuente, visual y exportación.</p></div>
+    <div class="card"><h3>📏 Las cifras del video (no medidas aquí)</h3><ul>
+      <li>1.ª versión: <strong>20 a 30 min</strong> y <strong>US$ 4</strong> en un modelo en la nube.</li>
+      <li>Ajustes hasta la versión final: <strong>US$ 5 a 6</strong> más.</li>
+      <li>Resultado: <strong>~80%</strong> en un solo pedido.</li>
+      <li>Al ejecutarlo localmente, el costo se reduce a la máquina y la energía.</li>
+    </ul></div>
+  </div>
+  <div class="warn"><strong>Límites honestos.</strong> Lo que está en el servidor del fabricante no viene incluido (por ejemplo: la biblioteca de diagramas SmartArt de PowerPoint está en la nube, así que el clon crea formas y texto, pero no SmartArt). REA lleva hasta ~80%, no hasta el último tramo. Y los modelos de frontera (Claude, Codex, Gemini) a veces rechazan partes de este trabajo y pueden cerrar aún más la puerta: por eso entra en juego el modelo local.</div>
+</div></section>
+
+<section id="modelos"><div class="wrap">
+  <span class="chip">El cerebro</span>
+  <h2>Modelos sin restricciones verificados en Ollama</h2>
+  <p class="sub">Solo lo que existe realmente en la página de Ollama al 12/10/2026 (pestaña "tags" de cada modelo). No se descargó ni midió ninguno en esta máquina: el disco estaba al 98%. Elige según el tamaño que quepa en tu memoria.</p>
+  <div class="tblw"><table>
+    <thead><tr><th>Modelo (comando exacto)</th><th>Tamaño</th><th>Recursos en la página</th><th>Observación</th></tr></thead>
+    <tbody>
+      <tr><td><strong><code>ollama pull huihui_ai/Qwen3.8-abliterated:27b</code></strong></td><td>18 GB (q4_K_M)</td><td>tools · thinking · vision</td><td>La misma base que <code>qwen3.8:27b</code>, que ya funciona en dsh aquí. Primera opción. <span class="tag-no">no medido</span></td></tr>
+      <tr><td><strong><code>ollama pull huihui_ai/Qwen3.6-abliterated:35b-a3b</code></strong></td><td>24 GB</td><td>tools · thinking · vision</td><td>MoE (3B activos por token): suele ser rápido. <span class="tag-no">no medido</span></td></tr>
+      <tr><td><strong><code>ollama pull huihui_ai/glm-4.7-flash-abliterated</code></strong></td><td>19 GB</td><td>tools · thinking</td><td>Familia GLM, la misma del ejemplo del video (allí se usó una versión más grande, en la nube). <span class="tag-no">no medido</span></td></tr>
+      <tr><td><strong><code>ollama pull huihui_ai/gpt-oss-abliterated:20b</code></strong></td><td>14 GB</td><td>tools · thinking</td><td>El más pequeño de la lista con herramientas. Bueno para una máquina con 32 GB. <span class="tag-no">no medido</span></td></tr>
+      <tr><td><strong><code>ollama pull huihui_ai/qwen3-coder-abliterated:30b</code></strong></td><td>19 GB</td><td>sin etiqueta "tools" en la página</td><td>Enfocado en código, pero verifica la etiqueta <em>tools</em>: sin llamada a herramientas, el agente no usa REA. <span class="tag-no">no medido</span></td></tr>
+    </tbody>
+  </table></div>
+  <div class="warn"><strong>Por qué importa "tools".</strong> El harness solo puede usar REA si el modelo sabe llamar a herramientas. En la página de Ollama de cada modelo aparecen las etiquetas <em>tools</em>, <em>thinking</em>, <em>vision</em>. Sin <em>tools</em>, el modelo conversa, pero no actúa.<br><br><strong>¿No tienes una máquina para esto?</strong> Hay servicios en la nube prepago de terceros (como OpenRouter, que dsh ya admite en el modo <code>./dsh remoto</code>) que alojan modelos sin restricciones, con crédito de US$ 5 a 10. Así, el código de la app sale de tu máquina, y en el modo remoto dsh no monta <code>~/projetos</code> a propósito.</div>
+</div></section>
+
+<section id="pre"><div class="wrap">
+  <span class="chip">Requisitos previos</span>
+  <h2>Qué debe estar listo</h2>
+  <p class="sub">Probado como referencia en una máquina Linux ARM (DGX GB10, 128 GB de memoria unificada). En otra máquina, los comandos son los mismos; cambia el tamaño de los modelos que caben.</p>
+  <div class="grid g2">
+    <div class="card"><h3>🐳 Docker + dsh-sandbox</h3><p>dsh (<code>@deepseek-ai/dsh</code> 0.1.1-rc.1) en un contenedor <code>node:22-slim</code>, límite de 3 GB, usuario sin permisos de root, solo en <code>127.0.0.1:9080</code>.</p><pre><span class="k">cd</span> ~/projetos/dsh-sandbox
+<span class="k">./dsh status</span>   <span class="c"># modo, container, http, provedores</span></pre></div>
+    <div class="card"><h3>🦙 Ollama</h3><p>Puerto 11434, contexto de 32K y caché KV q8_0 en el servicio. Comprueba qué hay ya y el espacio en disco antes de descargar un modelo.</p><pre><span class="k">ollama list</span>
+<span class="k">df -h /</span>        <span class="c"># o modelo pede 14 a 24 GB livres</span></pre></div>
+    <div class="card"><h3>🟢 Node.js 22.19+</h3><p>REA requiere Node 22.19+, 24.11+ o 26+. El contenedor de dsh ya incluye el 22.23.</p><pre><span class="k">docker run --rm node:22-slim node -v</span>   <span class="c"># v22.23.x</span></pre></div>
+    <div class="card"><h3>🐉 Ghidra 12.1.x + JDK 21 (solo para binario nativo)</h3><p>Para apps compiladas (C, C++, Swift, Rust). En Linux ARM64, puede que haya que compilar el descompilador nativo por separado. Esta máquina solo tiene JDK 8, así que este camino está <strong>no medido</strong>. Las apps Electron/JavaScript no necesitan Ghidra.</p><pre><span class="k">java -version</span>   <span class="c"># precisa ser 21 ou mais novo</span></pre></div>
+  </div>
+</div></section>
+<section id="guia"><div class="wrap">
+  <span class="chip">Paso a paso</span>
+  <h2>Cinco pasos, del harness a tu versión</h2>
+  <p class="sub">Los prompts completos para copiar y pegar están en la carpeta <a href="https://github.com/inematds/rea-sem-travas/tree/main/prompts" target="_blank" rel="noopener">prompts/</a> del repositorio (en portugués).</p>
+
+  <div class="step"><div class="b">1</div><div>
+    <h3>Inicia el harness en modo local</h3>
+    <p>El modo <code>local</code> monta <code>~/projetos</code> en <code>/projetos</code> y deja solo Ollama como proveedor: nada sale de la máquina. Abre el panel y elige el workspace.</p>
+<pre><span class="k">cd</span> ~/projetos/dsh-sandbox
+<span class="k">./dsh local</span>     <span class="c"># ~20 s; después abre http://127.0.0.1:9080</span>
+<span class="k">./dsh status</span>    <span class="c"># debe mostrar: modo local, /projetos montado SÍ, proveedores: ollama</span>
+<span class="c"># desde otra máquina: ssh -L 9080:127.0.0.1:9080 usuario@servidor</span></pre>
+  </div></div>
+
+  <div class="step"><div class="b">2</div><div>
+    <h3>Descarga un modelo sin restricciones y apunta dsh a él</h3>
+    <p>Descarga uno de la tabla de arriba. Después añade el modelo en <code>settings.local.yaml</code> (no en <code>work/.dsh/settings.yaml</code>, que se sobrescribe cada vez que cambias de modo), dentro de <code>llm-pi-ai → providers → ollama → models</code>. El <code>id</code> debe coincidir letra por letra con <code>ollama list</code>.</p>
+<pre><span class="k">ollama pull</span> huihui_ai/Qwen3.8-abliterated:27b
+<span class="k">ollama list</span> | <span class="k">grep</span> abliterated</pre>
+<pre><span class="c"># settings.local.yaml — añade a la lista models del proveedor ollama</span>
+        - id: <span class="s">huihui_ai/Qwen3.8-abliterated:27b</span>
+          name: <span class="s">Qwen3.8 27B sin restricciones</span>
+          contextWindow: 32768
+          maxTokens: 8192
+          reasoningEfforts:
+            off: none     <span class="c"># "none" explícito: vacío deja el razonamiento ACTIVADO en Ollama</span>
+            low: low
+            high: high
+            max: high</pre>
+<pre><span class="k">./dsh local</span>     <span class="c"># copia settings.local.yaml al contenedor (sin rebuild)</span></pre>
+    <p>El nuevo modelo aparece en el selector del panel. El bloque <code>compat</code> del proveedor (<code>supportsDeveloperRole: false</code>, <code>maxTokensField: max_tokens</code>) ya está en el archivo y es obligatorio para Ollama.</p>
+  </div></div>
+
+  <div class="step"><div class="b">3</div><div>
+    <h3>Instala REA (y, para binarios nativos, Ghidra)</h3>
+    <p><strong>Ruta A — app Electron/JavaScript, sin Ghidra.</strong> El agente ejecuta REA desde la línea de comandos dentro del propio contenedor. Este fue el camino medido aquí: REA 6.3.0 analizó una app Node de 97 archivos en 20 s; REA 6.4.0 analizó una app Electron de 202 archivos JS en 94,5 s (pico de 1,26 GB). Pon el objetivo en una carpeta visible para el contenedor (<code>~/projetos/dsh-sandbox/work/alvos</code> se convierte en <code>/work/alvos</code>) y pega el prompt:</p>
+<pre><span class="s">Instala esto y ayúdame a hacer ingeniería inversa de una app: https://github.com/morluto/rea
+Usa npx -y rea-agents@6.4.0, siempre con "timeout -k 10 600" delante.
+Analiza /work/alvos/&lt;app&gt;.asar con analyze-javascript-application --json,
+resume los módulos, las pantallas y dónde está &lt;la función que me interesa&gt;, con la evidencia.</span></pre>
+    <p><strong>Ruta B — REA como MCP dentro de dsh (no medido).</strong> El registro automático <code>rea setup --client dsh</code> todavía no está en el paquete publicado (la doc de REA dice "solo en main, después de la 6.4.0"). La forma manual: instalar REA en una carpeta propia dentro de <code>work/</code> (sin tocar el <code>node_modules</code> congelado de dsh) y registrar el servidor en el <code>cordis.patch.yml</code> de la casa de dsh.</p>
+<pre><span class="k">cd</span> ~/projetos/dsh-sandbox
+<span class="k">docker run</span> --rm -u 1000:1000 -v "$PWD/work:/work" -w /work \
+  -e HOME=/work -e NPM_CONFIG_CACHE=/work/.npm --memory=6g \
+  node:22-slim npm install --prefix /work/rea rea-agents@6.4.0</pre>
+<pre><span class="c"># ~/projetos/dsh-sandbox/work/.dsh/cordis.patch.yml  (en el contenedor: /work/.dsh/cordis.patch.yml)</span>
+- insert:
+    - id: rea-mcp
+      name: <span class="s">"@deepseek-ai/dsh-mcp-client"</span>
+      config:
+        serverName: rea
+        transport: stdio
+        command: /usr/local/bin/node
+        args: [<span class="s">"/work/rea/node_modules/rea-agents/scripts/rea.mjs"</span>, mcp]
+        toolCallTimeoutMs: 600000   <span class="c"># el valor predeterminado es 60 s; un análisis tarda más</span></pre>
+    <p>Reinicia con <code>./dsh local</code>; las herramientas aparecen como <code>mcp__rea__…</code>. Para binarios nativos, REA necesita Ghidra 12.1.x y JDK 21 <em>visibles desde dentro del contenedor</em> (<code>GHIDRA_INSTALL_DIR</code>, <code>JAVA_HOME</code>) y más memoria que los 3 GB del contenedor. Eso no se configuró ni se midió aquí.</p>
+  </div></div>
+
+  <div class="step"><div class="b">4</div><div>
+    <h3>Elige el objetivo y pide tu versión</h3>
+    <p>Empieza por una app pequeña, que uses y de la que eches en falta una sola cosa. Pide una app <strong>nueva</strong>, con nombre e ícono propios, escrita desde cero y que enumere al final lo que quedó fuera.</p>
+<pre><span class="s">A partir del análisis, crea una app NUEVA, con nombre e ícono propios (sin nombre, ícono,
+textos ni código del fabricante), que haga lo que hace &lt;app original&gt; en &lt;función principal&gt;
+y añada: velocidad de reproducción de 0,1x a 4x, en pasos de 0,05.
+Código desde cero en /work/minha-versao. Primero la versión mínima que funcione;
+al final, enumera lo que quedó fuera y lo que necesita pruebas manuales.</span></pre>
+  </div></div>
+
+  <div class="step"><div class="b">5</div><div>
+    <h3>Itera, un ajuste a la vez</h3>
+    <p>La primera versión suele funcionar en lo esencial. Lo demás son ajustes: apariencia, exportación, pequeños errores. Un pedido a la vez, probando entre ellos.</p>
+<pre><span class="s">Abrí la versión 1. Lo que no funcionó: &lt;lo que viste, con el mensaje de error&gt;.
+Corrige solo eso, vuelve a ejecutarlo y dime cómo confirmar que quedó bien.</span></pre>
+<pre><span class="s">Detente. Resume en 5 líneas lo que ya intentaste, qué dio error y cuál es la hipótesis.
+No ejecutes nada más hasta que te responda.</span>   <span class="c"># cuando el agente se atasca</span></pre>
+  </div></div>
+</div></section>
+<section id="verificar"><div class="wrap">
+  <span class="chip">Lista de verificación</span>
+  <h2>Antes de decir que funcionó</h2>
+  <p class="sub">Marca cada elemento. Si alguno falla, ve a "Problemas".</p>
+  <div class="grid g2">
+    <div class="card"><h3>Entorno</h3><ul class="check">
+      <li><strong><code>./dsh status</code></strong> muestra el modo local, http 200 y <code>/projetos</code> montado.</li>
+      <li><strong><code>ollama list</code></strong> muestra el modelo sin restricciones con el mismo nombre que el <code>id</code> en el YAML.</li>
+      <li>El modelo responde en el panel y puede ejecutar <code>ls /work</code> (prueba de que llama a herramientas).</li>
+      <li><code>npx -y rea-agents@6.4.0 --help</code> se ejecuta desde dentro del agente.</li>
+    </ul></div>
+    <div class="card"><h3>Resultado</h3><ul class="check">
+      <li>El análisis devolvió evidencia (archivo y fragmento), no solo una opinión.</li>
+      <li>La nueva app tiene <strong>nombre e icono propios</strong> y ningún archivo copiado del original.</li>
+      <li>La función que faltaba en el original funciona de verdad (prueba manual).</li>
+      <li>El agente enumeró lo que quedó fuera (servidor, partes no vistas).</li>
+    </ul></div>
+  </div>
+</div></section>
+
+<section id="problemas"><div class="wrap">
+  <span class="chip">Solución de problemas</span>
+  <h2>Cuando algo se atasca</h2>
+  <p class="sub">Los casos que ya aparecieron en esta máquina o que describe la documentación de REA y dsh.</p>
+  <div class="grid g2">
+    <div class="card"><h3>⏱️ REA bloqueado</h3><p>REA 6.3.0 se bloqueó en una app con un único archivo JS enorme e ignoró SIGTERM: hubo que matar el proceso huérfano por el PID. En 6.4.0, la misma app terminó. Aun así, ejecútalo siempre con un límite:</p><pre><span class="c"># en el host (systemd-run + timeout) o en el contenedor (timeout):</span>
+<span class="k">scripts/rea-com-timeout.sh</span> -t 600 -m 6G -- \
+  npx -y rea-agents@6.4.0 analyze-javascript-application /abs/app.asar --json</pre></div>
+    <div class="card"><h3>🧠 Modelo demasiado pequeño</h3><p>Señales: inventa nombres de herramientas, repite el mismo comando, olvida el objetivo. Cambia por uno más grande de la tabla, divide la solicitud en partes más pequeñas y pide al agente que guarde el resumen del análisis en un archivo para volver a leerlo después. El contexto de 32K se llena rápido con JSON grande: pide un resumen, no todo el JSON.</p></div>
+    <div class="card"><h3>🐉 Ghidra / Java</h3><p>REA acepta Ghidra 12.1.x con JDK 21+ (64 bits, con <code>javac</code>). JDK 8 no sirve. En Linux ARM64, revisa la carpeta <code>Ghidra/Features/Decompiler/os/linux_arm_64</code>. Diagnóstico:</p><pre><span class="k">npx -y rea-agents@6.4.0 doctor --provider ghidra --json</span></pre></div>
+    <div class="card"><h3>🔌 dsh no muestra las herramientas de REA</h3><p>Revisa la ruta de <code>rea.mjs</code> dentro del contenedor, el <code>command</code> de node (<code>/usr/local/bin/node</code>) y que <code>cordis.patch.yml</code> no esté vacío (un archivo solo con comentarios da error). Mira el registro:</p><pre><span class="k">docker compose logs --tail=50</span></pre></div>
+    <div class="card"><h3>🧩 El modelo no aparece en el selector</h3><p>El <code>id</code> no coincide con <code>ollama list</code>, o editaste <code>work/.dsh/settings.yaml</code> y <code>./dsh local</code> lo sobrescribió. Edita <code>settings.local.yaml</code> y ejecuta <code>./dsh local</code> otra vez.</p></div>
+    <div class="card"><h3>📂 El agente no encuentra la app</h3><p>El contenedor solo ve <code>/work</code> y, en modo local, <code>/projetos</code>. Copia la app (o el <code>.asar</code>) a <code>~/projetos/dsh-sandbox/work/alvos/</code> y usa la ruta absoluta dentro del contenedor.</p></div>
+  </div>
+</div></section>
+
+<section id="custos"><div class="wrap">
+  <span class="chip">Costos</span>
+  <h2>Nube de pago por uso o máquina propia</h2>
+  <p class="sub">REA, Ghidra, dsh y Ollama son gratuitos. Lo que cuesta es el modelo.</p>
+  <div class="tblw"><table>
+    <thead><tr><th>Escenario</th><th>Costo</th><th>Fuente</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Modelo sin restricciones en la nube (prepago)</strong></td><td>US$ 4 en la 1.ª versión + US$ 5 a 6 de ajustes</td><td>video de referencia <span class="tag-no">no medido aquí</span></td></tr>
+      <tr><td><strong>Modelo local en Ollama</strong></td><td>R$ 0 por solicitud; solo máquina y energía</td><td>sin clave de API</td></tr>
+      <tr><td><strong>Tiempo hasta la 1.ª versión</strong></td><td>20 a 30 min (nube); en local depende del modelo y de la máquina</td><td>video de referencia <span class="tag-no">no medido aquí</span></td></tr>
+      <tr><td><strong>Memoria del modelo local</strong></td><td>14 a 24 GB (tabla de modelos); dsh en sí usa ~85 MB</td><td>página de Ollama + medición de dsh-sandbox</td></tr>
+    </tbody>
+  </table></div>
+</div></section>
+
+<section id="responsavel"><div class="wrap">
+  <span class="chip">Uso responsable</span>
+  <h2>"Sin restricciones" no significa "sin reglas"</h2>
+  <p class="sub">Sin restricciones quiere decir que el modelo no rechaza tareas <strong>legítimas</strong> de ingeniería inversa. No es para nada ilegal.</p>
+  <div class="grid g2">
+    <div class="card"><h3>✅ Permitido</h3><ul class="check">
+      <li>Estudiar un programa que tienes y usas para entender cómo funciona.</li>
+      <li>Hacer tu propia versión para uso personal e interoperabilidad (abrir tus archivos, conectar con tus herramientas).</li>
+      <li>Escribir el código desde cero, con tu propio nombre, icono y aspecto visual.</li>
+    </ul></div>
+    <div class="card"><h3>⛔ No permitido</h3><ul class="check">
+      <li>Redistribuir código, iconos, textos o marcas del fabricante.</li>
+      <li>Vender una copia de un programa: infringe los derechos de autor y la licencia.</li>
+      <li>Romper protecciones contra copia, licencias o DRM, o apuntar a un programa que no tienes derecho a usar.</li>
+      <li>Ejecutar un binario desconocido fuera de una máquina aislada: REA no es un sandbox.</li>
+    </ul></div>
+  </div>
+  <div class="warn">Muchas licencias de software prohíben la ingeniería inversa; las leyes varían según el país. En caso de duda, mantente en terreno seguro: tus propios programas, código abierto, retos de seguridad y aquello que tienes autorización para analizar.</div>
+</div></section>
+<section id="video"><div class="wrap">
+  <span class="chip">Vídeo</span>
+  <h2>Mira el video</h2>
+  <p class="sub">El video de esta guía, con el paso a paso explicado.</p>
+  <a class="btn" href="https://inematds.github.io/rea-sem-travas/videos/">▶ Ver el video</a>
+</div></section>
+
+<section id="medido"><div class="wrap">
+  <span class="chip">Transparencia</span>
+  <h2>Qué se midió y qué no</h2>
+  <p class="sub">Para que sepas dónde puedes pisar con seguridad.</p>
+  <div class="tblw"><table>
+    <thead><tr><th>Elemento</th><th>Estado</th><th>Detalle</th></tr></thead>
+    <tbody>
+      <tr><td><strong>dsh en modo local con Ollama</strong></td><td><span class="tag-ok">medido</span></td><td>Arranque ~18 s, ~85 MB en reposo, <code>qwen3.8:27b</code> ~18–20 GB (dsh-sandbox, 08/2026).</td></tr>
+      <tr><td><strong>REA, análisis JS sin Ghidra</strong></td><td><span class="tag-ok">medido</span></td><td>6.3.0: 97 archivos en 20 s; 6.4.0: 202 archivos JS en 94,5 s, pico de 1,26 GB (Linux ARM, 10–12/10/2026).</td></tr>
+      <tr><td><strong>REA bloqueado en un archivo JS gigante</strong></td><td><span class="tag-ok">medido</span></td><td>6.3.0 se bloqueó e ignoró SIGTERM; 6.4.0 terminó. Límite con <code>scripts/rea-com-timeout.sh</code> probado en ambos modos.</td></tr>
+      <tr><td><strong>Modelos sin restricciones de la tabla</strong></td><td><span class="tag-no">no medido</span></td><td>Verificados en la página de Ollama; ninguno descargado (disco al 98%).</td></tr>
+      <tr><td><strong>REA como MCP dentro de dsh</strong></td><td><span class="tag-no">no medido</span></td><td>Receta manual según la documentación de REA y de <code>dsh-mcp-client</code> 0.1.1-rc.1.</td></tr>
+      <tr><td><strong>Ghidra en esta máquina</strong></td><td><span class="tag-no">no medido</span></td><td>Solo hay JDK 8; Ghidra 12.1.x requiere JDK 21 y, en ARM64, su propio descompilador nativo.</td></tr>
+      <tr><td><strong>El clon de QuickTime, costos y tiempos</strong></td><td><span class="tag-no">no medido</span></td><td>Cifras del video de referencia (macOS, modelo en la nube).</td></tr>
+    </tbody>
+  </table></div>
+</div></section>
+
+<section id="roadmap"><div class="wrap">
+  <span class="chip">Próximos pasos</span>
+  <h2>Qué falta medir</h2>
+  <p class="sub">Elementos pendientes de esta guía, en el orden en que más impacto tienen.</p>
+  <div class="phase"><div class="tag">Fase 1</div><div class="d"><strong>Medir un modelo sin restricciones en dsh</strong><span>Descargar <code>huihui_ai/Qwen3.8-abliterated:27b</code> cuando haya espacio en disco y ejecutar el camino A en una app pequeña de Electron: tiempo, memoria, cuántas solicitudes hasta la primera versión.</span></div></div>
+  <div class="phase"><div class="tag">Fase 2</div><div class="d"><strong>REA como MCP en dsh</strong><span>Aplicar <code>cordis.patch.yml</code>, confirmar las herramientas <code>mcp__rea__…</code> en el panel y el valor de <code>toolCallTimeoutMs</code>.</span></div></div>
+  <div class="phase"><div class="tag">Fase 3</div><div class="d"><strong>Ghidra en Linux ARM64</strong><span>JDK 21 + Ghidra 12.1.x con el descompilador <code>linux_arm_64</code>, visibles en el contenedor, para binarios nativos.</span></div></div>
+  <p class="mut" style="margin-top:22px">Guía anterior, con la técnica, los casos y la nueva prueba de 6.4.0: <a href="https://inematds.github.io/rea-engenharia-reversa/guia/" target="_blank" rel="noopener">REA, ingeniería inversa con IA</a> (en portugués). Repositorio de REA: <a href="https://github.com/morluto/rea" target="_blank" rel="noopener">morluto/rea</a> (MIT, ~147 mil estrellas al 12/10/2026).</p>
+</div></section>
+
+<footer>
+  <div class="wrap">
+    <div class="pill">dsh</div><div class="pill">Ollama</div><div class="pill">REA</div><div class="pill">Ghidra</div>
+    <p style="margin-top:18px">REA sin bloqueos · contenido abierto y gratuito ·
+      <a href="https://github.com/inematds/rea-sem-travas">inematds/rea-sem-travas</a> ·
+      <a href="https://inema.club">INEMA.CLUB</a></p>
+  </div>
+</footer>
+
+<script>
+  (function(){
+    var KEY='rea-sem-travas-theme';
+    var b=document.body, t=document.getElementById('themeToggle');
+    try{ if(localStorage.getItem(KEY)==='light'){ b.classList.add('light'); t.textContent='☀️'; } }catch(e){}
+    t.addEventListener('click',function(){
+      var light=b.classList.toggle('light');
+      t.textContent=light?'☀️':'🌙';
+      try{ localStorage.setItem(KEY, light?'light':'dark'); }catch(e){}
+    });
+  })();
+</script>
+</body>
+</html>

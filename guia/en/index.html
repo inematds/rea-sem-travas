@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>REA without restrictions — your reverse engineering agent on your computer</title>
+<meta name="description" content="How to recreate a desktop app your way with an unrestricted open model in Ollama, the local dsh harness, and REA (MCP that connects Ghidra). Step by step, prompts, limits, and responsible use.">
+<link rel="alternate" hreflang="pt-BR" href="https://inematds.github.io/rea-sem-travas/guia/">
+<link rel="alternate" hreflang="en" href="https://inematds.github.io/rea-sem-travas/guia/en/">
+<link rel="alternate" hreflang="es" href="https://inematds.github.io/rea-sem-travas/guia/es/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0c0c10; --bg2:#14141b; --card:#16161e; --line:#272730;
+    --txt:#e9e9ee; --mut:#9a9aa6; --amb:#E2A23B; --amb2:#f0c070; --sky:#38bdf8; --pro:#cbd5e1;
+    color-scheme:dark;
+  }
+  body.light{
+    --bg:#f6f7f9; --bg2:#eceef2; --card:#ffffff; --line:#e1e3ea;
+    --txt:#1a1a22; --mut:#5b5b68; --amb:#b9791d; --amb2:#a16207; --sky:#0369a1; --pro:#b45309;
+    color-scheme:light;
+  }
+  body.light .hero .glow{opacity:.5}
+  body.light pre{background:#0e0e14;color:#d6d6e0}
+  body.light pre .c{color:#8a8a98}
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--txt);font:16px/1.65 Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  h1,h2,h3{font-family:Sora,sans-serif;line-height:1.15;margin:0}
+  a{color:var(--amb);text-decoration:none}
+  code,pre{font-family:"JetBrains Mono",monospace}
+  .wrap{max-width:1160px;margin:0 auto;padding:0 22px}
+  .mut{color:var(--mut)} .amb{color:var(--amb)}
+  .chip{display:inline-block;font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--amb);font-weight:600;font-family:Sora}
+  nav{position:sticky;top:0;z-index:30;backdrop-filter:blur(12px);background:rgba(12,12,16,.78);border-bottom:1px solid var(--line)}
+  nav .wrap{display:flex;align-items:center;gap:22px;height:60px}
+  nav .brand{display:flex;align-items:center;gap:8px;font-family:Sora;font-weight:800;letter-spacing:-.02em;color:var(--amb)}
+  nav .brand .emoji{font-size:1.25rem}
+  nav .sep{color:var(--mut);opacity:.45}
+  nav .inema{color:var(--sky);font-weight:600;font-size:.88rem;font-family:Sora}
+  nav .inema:hover{filter:brightness(1.15)}
+  nav .pro{color:var(--pro);font-weight:600;font-size:.88rem;font-family:Sora}
+  nav .pro:hover{filter:brightness(1.15)}
+  nav .clubpro{display:inline-flex;align-items:center;gap:6px}
+  nav .links{margin-left:auto;display:flex;align-items:center;gap:20px;font-size:.92rem}
+  nav .links a.sec{color:var(--mut);white-space:nowrap} nav .links a.sec:hover{color:var(--txt)}
+  nav .brand{white-space:nowrap} @media(max-width:1100px){nav .links a.sec.opt{display:none}}
+  .lang{display:inline-flex;gap:2px;font-family:Sora;font-size:.78rem}
+  .lang a{color:var(--mut);padding:.2em .45em;border-radius:6px} .lang a.on{color:var(--amb);background:rgba(226,162,59,.12)}
+  .tgl{background:var(--bg2);border:1px solid var(--line);color:var(--txt);width:38px;height:38px;border-radius:10px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:1.05rem}
+  .tgl:hover{border-color:var(--amb)}
+  .btn{display:inline-block;background:var(--amb);color:#1a1206;font-weight:600;padding:.6em 1.05em;border-radius:10px;font-family:Sora}
+  .btn.ghost{background:transparent;color:var(--txt);border:1px solid var(--line)}
+  @media(max-width:760px){nav .links a.sec{display:none}}
+  @media(max-width:520px){nav .wrap{gap:8px;padding:8px 14px;height:auto;flex-wrap:wrap} nav .links{gap:8px;margin-left:0;width:100%;justify-content:space-between} nav .btn{padding:.45em .7em;font-size:.82rem} .tgl{width:34px;height:34px}}
+  .hero{position:relative;overflow:hidden;border-bottom:1px solid var(--line)}
+  .hero .glow{position:absolute;inset:-40% -20% auto auto;width:70%;height:600px;background:radial-gradient(closest-side,rgba(226,162,59,.22),transparent 70%);pointer-events:none}
+  .hero .wrap{display:grid;grid-template-columns:1.1fr .9fr;gap:40px;align-items:center;padding:74px 22px}
+  .hero h1{font-size:clamp(2.2rem,5vw,3.5rem);font-weight:800;letter-spacing:-.025em}
+  .hero p.lead{font-size:1.18rem;color:var(--mut);margin:1.1em 0 1.6em;max-width:34ch}
+  .hero .cta{display:flex;gap:12px;flex-wrap:wrap}
+  .hero figure{margin:0;border-radius:16px;overflow:hidden;border:1px solid var(--line);box-shadow:0 30px 80px -30px #000}
+  .hero figure img{width:100%;display:block}
+  .resumo{padding:38px 0 34px;border-bottom:1px solid var(--line)}
+  .resumo p{font-size:1.12rem;line-height:1.7;max-width:74ch;margin:.55em 0 0}
+  @media(max-width:780px){.hero .wrap{grid-template-columns:1fr;padding:48px 22px}}
+  section{padding:62px 0;border-bottom:1px solid var(--line)}
+  section h2{font-size:clamp(1.5rem,3.4vw,2.1rem);font-weight:800;letter-spacing:-.02em}
+  section .sub{color:var(--mut);margin:.6em 0 2em;max-width:62ch}
+  .grid{display:grid;gap:16px}
+  .g3{grid-template-columns:repeat(3,1fr)} .g4{grid-template-columns:repeat(4,1fr)} .g2{grid-template-columns:repeat(2,1fr)}
+  @media(max-width:820px){.g3,.g4{grid-template-columns:1fr 1fr}}
+  @media(max-width:540px){.g2,.g3,.g4{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px}
+  .card h3{font-size:1.05rem;margin-bottom:.4em}
+  .card p{color:var(--mut);font-size:.92rem;margin:0}
+  .card ul{color:var(--mut);font-size:.92rem;margin:.4em 0 0;padding-left:1.1em}
+  .num{display:inline-flex;width:30px;height:30px;align-items:center;justify-content:center;border-radius:8px;background:rgba(226,162,59,.14);color:var(--amb);font-family:Sora;font-weight:800;font-size:.9rem;margin-bottom:.7em}
+  .flow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+  .flow span{background:var(--bg2);border:1px solid var(--line);border-radius:999px;padding:.45em .9em;font-size:.85rem;font-family:Sora;font-weight:600}
+  .flow .arr{color:var(--amb);border:none;background:none;padding:0 .1em}
+  pre{background:#0a0a0e;border:1px solid var(--line);border-radius:12px;padding:16px 18px;overflow:auto;font-size:.86rem;line-height:1.6;color:#d6d6e0}
+  pre .c{color:#6f6f7c} pre .k{color:var(--amb2)} pre .s{color:#9ece6a}
+  .step{display:grid;grid-template-columns:46px minmax(0,1fr);gap:16px;margin-bottom:26px}
+  .step>div,.card{min-width:0}
+  p code,li code,td code{overflow-wrap:anywhere}
+  .step .b{width:46px;height:46px;border-radius:12px;background:var(--amb);color:#1a1206;font-family:Sora;font-weight:800;font-size:1.25rem;display:flex;align-items:center;justify-content:center}
+  .step h3{font-size:1.12rem;margin-bottom:.3em}
+  .step p{color:var(--mut);margin:.2em 0 .7em}
+  .phase{display:flex;gap:14px;padding:16px 0;border-bottom:1px solid var(--line)}
+  .phase:last-child{border:none}
+  .phase .tag{flex:0 0 92px;font-family:Sora;font-weight:800;color:var(--amb)}
+  .phase .d strong{display:block;margin-bottom:.2em}
+  .phase .d span{color:var(--mut);font-size:.92rem}
+  footer{padding:46px 0;text-align:center;color:var(--mut);font-size:.9rem}
+  .pill{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:.3em .8em;font-size:.78rem;color:var(--mut);margin:0 4px}
+  /* tabelas e avisos (acrescimo deste guia) */
+  .tblw{overflow-x:auto;border:1px solid var(--line);border-radius:14px}
+  table{width:100%;border-collapse:collapse;font-size:.9rem;min-width:620px}
+  th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-family:Sora;font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--amb);background:var(--bg2)}
+  tr:last-child td{border-bottom:none}
+  td{color:var(--mut)} td strong{color:var(--txt)}
+  .warn{border-left:3px solid var(--amb);background:var(--card);border-radius:0 12px 12px 0;padding:14px 18px;margin:18px 0;color:var(--mut);font-size:.95rem}
+  .warn strong{color:var(--txt)}
+  .tag-ok,.tag-no{display:inline-block;font-family:Sora;font-size:.7rem;font-weight:700;padding:.15em .55em;border-radius:6px;white-space:nowrap}
+  .tag-ok{background:rgba(158,206,106,.14);color:#9ece6a}
+  .tag-no{background:rgba(226,162,59,.14);color:var(--amb)}
+  .check li{margin:.35em 0;color:var(--mut)} .check li strong{color:var(--txt)}
+</style>
+</head>
+<body>
+
+<nav><div class="wrap">
+  <a class="brand" href="#top"><span class="emoji">🔓</span> Unlocked REA</a>
+  <span class="sep">|</span>
+  <span class="clubpro">
+    <a class="inema" href="https://inema.club" target="_blank" rel="noopener">INEMA.CLUB</a>
+    <span class="sep">-</span>
+    <a class="pro" href="https://inema.pro" target="_blank" rel="noopener">PRO</a>
+  </span>
+  <div class="links">
+    <a class="sec" href="#oque">What it is</a>
+    <a class="sec opt" href="#modelos">Models</a>
+    <a class="sec" href="#guia">Step by step</a>
+    <a class="sec opt" href="#problemas">Problems</a>
+    <a class="sec" href="#responsavel">Responsible use</a>
+    <span class="lang"><a href="../">PT</a><a class="on" href="./">EN</a><a href="../es/">ES</a></span>
+    <button class="tgl" id="themeToggle" aria-label="Toggle theme" title="Toggle theme">🌙</button>
+    <a class="btn" href="https://github.com/inematds/rea-sem-travas" target="_blank" rel="noopener">GitHub</a>
+  </div>
+</div></nav>
+
+<header class="hero" id="top">
+  <div class="glow"></div>
+  <div class="wrap">
+    <div>
+      <span class="chip">How to · open model + local harness + REA</span>
+      <h1>Break the restriction: your <span class="amb">unlocked</span> agent, on your computer</h1>
+      <p class="lead">An open model that doesn't refuse legitimate reverse engineering, the dsh harness running locally, and REA connecting to Ghidra. Point it at an app and ask it to make your version.</p>
+      <div class="cta">
+        <a class="btn" href="#guia">Start the step-by-step guide</a>
+        <a class="btn ghost" href="https://github.com/inematds/rea-sem-travas" target="_blank" rel="noopener">View on GitHub</a>
+      </div>
+    </div>
+    <figure><img src="../assets/banner-en.jpg" alt="Your unlocked agent: open model + local harness + REA"></figure>
+  </div>
+</header>
+
+<section id="resumo" class="resumo"><div class="wrap">
+  <span class="chip">In short</span>
+  <p>This is a guide to recreating a computer program your way using three open components: a local agent harness (the <strong>dsh</strong>, DeepSeek's coding agent), an <strong>"unlocked" open model</strong> running in Ollama, and <strong>REA</strong>, which gives the agent reverse engineering tools such as Ghidra. It's for programmers and students who want to understand how an app works and make their own version, without relying on cloud models that sometimes refuse the request. Everything runs on your machine: you need Docker, Ollama, Node 22, and enough memory for a 14 to 24 GB model. Expect to get about 80% of the app, not the final stretch.</p>
+</div></section>
+
+<section id="oque"><div class="wrap">
+  <span class="chip">What it is</span>
+  <h2>Three parts that fit together</h2>
+  <p class="sub">The model is the brain, the harness is the body with the tools, and REA is the eyes that see inside the compiled app.</p>
+  <figure style="margin:0 0 26px;border-radius:16px;overflow:hidden;border:1px solid var(--line);box-shadow:0 30px 80px -30px #000"><img src="../assets/banner-grade-en.jpg" alt="Local harness, unlocked model, REA + Ghidra, choose the target, iterate, responsible use" loading="lazy" style="width:100%;display:block"></figure>
+  <div class="grid g3">
+    <div class="card"><h3>🧰 Local harness (dsh)</h3><p>The workbench where the agent lives: it reads and writes files, runs commands, and calls MCP tools. Here it runs in a container, only at the local address, and lets you switch models.</p></div>
+    <div class="card"><h3>🧠 Unlocked model</h3><p>An "abliterated" version of an open model: its refusal reflex has been removed. It runs in Ollama on your machine, with no API key and nothing sent outside.</p></div>
+    <div class="card"><h3>🔍 REA + Ghidra</h3><p>REA (Reverse Engineer Anything) is an MCP server and command line tool that provide the agent with app analysis: modules, functions, connections, with evidence and limits.</p></div>
+  </div>
+</div></section>
+<section id="fluxo"><div class="wrap">
+  <span class="chip">How it works</span>
+  <h2>From a closed app to your own version</h2>
+  <p class="sub">The agent doesn’t need to be brilliant: REA already organizes the tools, and the model just executes. That’s why a mid-sized open model can handle much of the work.</p>
+  <div class="flow">
+    <span>You point to the app</span><span class="arr">→</span>
+    <span>dsh (harness)</span><span class="arr">→</span>
+    <span>model in Ollama</span><span class="arr">→</span>
+    <span>REA</span><span class="arr">→</span>
+    <span>Ghidra or JS analysis</span><span class="arr">→</span>
+    <span>evidence</span><span class="arr">→</span>
+    <span>new code, from scratch</span><span class="arr">→</span>
+    <span>you test and iterate</span>
+  </div>
+  <div class="grid g2" style="margin-top:26px">
+    <div class="card"><h3>🎬 The reference video example</h3><p>The Mac video player (QuickTime) offers only a few fixed speeds. The agent studied the app and created a new one, with a different name ("Tempo") and icon, granular speed control, audio waveforms, and pitch adjustment. About 80% was done in a single request; the rest was sources, visuals, and export.</p></div>
+    <div class="card"><h3>📏 The video’s numbers (not measured here)</h3><ul>
+      <li>1st version: <strong>20 to 30 min</strong> and <strong>US$ 4</strong> for a cloud model.</li>
+      <li>Adjustments through the final version: another <strong>US$ 5 to 6</strong>.</li>
+      <li>Result: <strong>~80%</strong> in a single request.</li>
+      <li>Running locally, the only costs are the machine and electricity.</li>
+    </ul></div>
+  </div>
+  <div class="warn"><strong>Honest limitations.</strong> What lives on the manufacturer’s server doesn’t come with it (for example: PowerPoint’s SmartArt diagram library is in the cloud, so the clone makes shapes and text, but not SmartArt). REA gets you to ~80%, not the last mile. And frontier models (Claude, Codex, Gemini) sometimes refuse parts of this work and may close the door even further: that’s why the local model comes in.</div>
+</div></section>
+
+<section id="modelos"><div class="wrap">
+  <span class="chip">The brain</span>
+  <h2>Unrestricted models checked on Ollama</h2>
+  <p class="sub">Only what actually exists on the Ollama page on 12/10/2026 (the "tags" tab for each model). None were downloaded or measured on this machine: the disk was at 98%. Choose based on what fits in your memory.</p>
+  <div class="tblw"><table>
+    <thead><tr><th>Model (exact command)</th><th>Size</th><th>Features on the page</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td><strong><code>ollama pull huihui_ai/Qwen3.8-abliterated:27b</code></strong></td><td>18 GB (q4_K_M)</td><td>tools · thinking · vision</td><td>Same base as <code>qwen3.8:27b</code>, which already runs in dsh here. First choice. <span class="tag-no">not measured</span></td></tr>
+      <tr><td><strong><code>ollama pull huihui_ai/Qwen3.6-abliterated:35b-a3b</code></strong></td><td>24 GB</td><td>tools · thinking · vision</td><td>MoE (3B active per token): tends to be fast. <span class="tag-no">not measured</span></td></tr>
+      <tr><td><strong><code>ollama pull huihui_ai/glm-4.7-flash-abliterated</code></strong></td><td>19 GB</td><td>tools · thinking</td><td>GLM family, same as in the video example (that one was a larger cloud version). <span class="tag-no">not measured</span></td></tr>
+      <tr><td><strong><code>ollama pull huihui_ai/gpt-oss-abliterated:20b</code></strong></td><td>14 GB</td><td>tools · thinking</td><td>The smallest on the list with tools. Good for a 32 GB machine. <span class="tag-no">not measured</span></td></tr>
+      <tr><td><strong><code>ollama pull huihui_ai/qwen3-coder-abliterated:30b</code></strong></td><td>19 GB</td><td>no "tools" tag on the page</td><td>Focused on code, but check the <em>tools</em> tag: without tool calling, the agent won’t use REA. <span class="tag-no">not measured</span></td></tr>
+    </tbody>
+  </table></div>
+  <div class="warn"><strong>Why "tools" matters.</strong> The harness can use REA only if the model knows how to call tools. The Ollama page for each model shows the <em>tools</em>, <em>thinking</em>, and <em>vision</em> tags. Without <em>tools</em>, the model chats but doesn’t act.<br><br><strong>Don’t have a machine for this?</strong> There are prepaid third-party cloud services (like OpenRouter, which dsh already supports in <code>./dsh remoto</code> mode) that host unrestricted models, with US$ 5 to 10 in credit. Then the app code leaves your machine, and in remote mode dsh deliberately doesn’t mount <code>~/projetos</code>.</div>
+</div></section>
+
+<section id="pre"><div class="wrap">
+  <span class="chip">Prerequisites</span>
+  <h2>What needs to be ready</h2>
+  <p class="sub">Tested as a reference on an ARM Linux machine (DGX GB10, 128 GB unified memory). On another machine, the commands are the same; the sizes that fit will vary.</p>
+  <div class="grid g2">
+    <div class="card"><h3>🐳 Docker + dsh-sandbox</h3><p>dsh (<code>@deepseek-ai/dsh</code> 0.1.1-rc.1) in a <code>node:22-slim</code> container, 3 GB limit, non-root user, only on <code>127.0.0.1:9080</code>.</p><pre><span class="k">cd</span> ~/projetos/dsh-sandbox
+<span class="k">./dsh status</span>   <span class="c"># mode, container, http, providers</span></pre></div>
+    <div class="card"><h3>🦙 Ollama</h3><p>Port 11434, 32K context and q8_0 KV cache in the service. Check what’s already installed and the disk space before pulling a model.</p><pre><span class="k">ollama list</span>
+<span class="k">df -h /</span>        <span class="c"># the model needs 14 to 24 GB free</span></pre></div>
+    <div class="card"><h3>🟢 Node.js 22.19+</h3><p>REA requires Node 22.19+, 24.11+ or 26+. The dsh container already includes 22.23.</p><pre><span class="k">docker run --rm node:22-slim node -v</span>   <span class="c"># v22.23.x</span></pre></div>
+    <div class="card"><h3>🐉 Ghidra 12.1.x + JDK 21 (native binaries only)</h3><p>For compiled apps (C, C++, Swift, Rust). On Linux ARM64, the native decompiler may need to be compiled separately. This machine has only JDK 8, so this path is <strong>not measured</strong>. Electron/JavaScript apps don’t need Ghidra.</p><pre><span class="k">java -version</span>   <span class="c"># needs to be 21 or newer</span></pre></div>
+  </div>
+</div></section>
+<section id="guia"><div class="wrap">
+  <span class="chip">Step by step</span>
+  <h2>Five steps, from the harness to your version</h2>
+  <p class="sub">The full prompts to copy and paste are in the repository’s <a href="https://github.com/inematds/rea-sem-travas/tree/main/prompts" target="_blank" rel="noopener">prompts/</a> folder (in Portuguese).</p>
+
+  <div class="step"><div class="b">1</div><div>
+    <h3>Start the harness in local mode</h3>
+    <p><code>local</code> mode mounts <code>~/projetos</code> at <code>/projetos</code> and leaves Ollama as the only provider: nothing leaves the machine. Open the dashboard and choose the workspace.</p>
+<pre><span class="k">cd</span> ~/projetos/dsh-sandbox
+<span class="k">./dsh local</span>     <span class="c"># ~20 s; then open http://127.0.0.1:9080</span>
+<span class="k">./dsh status</span>    <span class="c"># should show: local mode, /projetos mounted YES, providers: ollama</span>
+<span class="c"># from another machine: ssh -L 9080:127.0.0.1:9080 usuario@servidor</span></pre>
+  </div></div>
+
+  <div class="step"><div class="b">2</div><div>
+    <h3>Pull an unrestricted model and point dsh to it</h3>
+    <p>Download one from the table above. Then add the model to <code>settings.local.yaml</code> (not to <code>work/.dsh/settings.yaml</code>, which is overwritten each time the mode changes), under <code>llm-pi-ai → providers → ollama → models</code>. The <code>id</code> must match <code>ollama list</code> character for character.</p>
+<pre><span class="k">ollama pull</span> huihui_ai/Qwen3.8-abliterated:27b
+<span class="k">ollama list</span> | <span class="k">grep</span> abliterated</pre>
+<pre><span class="c"># settings.local.yaml — add to the ollama provider's models list</span>
+        - id: <span class="s">huihui_ai/Qwen3.8-abliterated:27b</span>
+          name: <span class="s">Qwen3.8 27B unrestricted</span>
+          contextWindow: 32768
+          maxTokens: 8192
+          reasoningEfforts:
+            off: none     <span class="c"># explicit "none": empty leaves reasoning ON in Ollama</span>
+            low: low
+            high: high
+            max: high</pre>
+<pre><span class="k">./dsh local</span>     <span class="c"># copies settings.local.yaml to the container (no rebuild)</span></pre>
+    <p>The new model appears in the dashboard selector. The provider's <code>compat</code> block (<code>supportsDeveloperRole: false</code>, <code>maxTokensField: max_tokens</code>) is already in the file and is required for Ollama.</p>
+  </div></div>
+
+  <div class="step"><div class="b">3</div><div>
+    <h3>Install REA (and Ghidra for native binaries)</h3>
+    <p><strong>Path A — Electron/JavaScript app, no Ghidra.</strong> The agent runs REA from the command line inside the container. This was the path measured here: REA 6.3.0 analyzed a 97-file Node app in 20 s; REA 6.4.0 analyzed an Electron app with 202 JS files in 94.5 s (1.26 GB peak). Put the target in a folder the container can see (<code>~/projetos/dsh-sandbox/work/alvos</code> becomes <code>/work/alvos</code>) and paste the prompt:</p>
+<pre><span class="s">Install this and help me reverse engineer an app: https://github.com/morluto/rea
+Use npx -y rea-agents@6.4.0, always preceded by "timeout -k 10 600".
+Analyze /work/alvos/&lt;app&gt;.asar with analyze-javascript-application --json,
+summarize modules, screens, and where &lt;the function I’m interested in&gt; is, with evidence.</span></pre>
+    <p><strong>Path B — REA as MCP inside dsh (not measured).</strong> Automatic registration with <code>rea setup --client dsh</code> is not in the published package yet (REA docs say "only on main, after 6.4.0"). The manual approach: install REA in its own folder under <code>work/</code> (without touching dsh's frozen <code>node_modules</code>) and register the server in dsh home’s <code>cordis.patch.yml</code>.</p>
+<pre><span class="k">cd</span> ~/projetos/dsh-sandbox
+<span class="k">docker run</span> --rm -u 1000:1000 -v "$PWD/work:/work" -w /work \
+  -e HOME=/work -e NPM_CONFIG_CACHE=/work/.npm --memory=6g \
+  node:22-slim npm install --prefix /work/rea rea-agents@6.4.0</pre>
+<pre><span class="c"># ~/projetos/dsh-sandbox/work/.dsh/cordis.patch.yml  (inside container: /work/.dsh/cordis.patch.yml)</span>
+- insert:
+    - id: rea-mcp
+      name: <span class="s">"@deepseek-ai/dsh-mcp-client"</span>
+      config:
+        serverName: rea
+        transport: stdio
+        command: /usr/local/bin/node
+        args: [<span class="s">"/work/rea/node_modules/rea-agents/scripts/rea.mjs"</span>, mcp]
+        toolCallTimeoutMs: 600000   <span class="c"># default is 60 s; an analysis takes longer</span></pre>
+    <p>Restart with <code>./dsh local</code>; the tools appear as <code>mcp__rea__…</code>. For native binaries, REA needs Ghidra 12.1.x and JDK 21 <em>visible from inside the container</em> (<code>GHIDRA_INSTALL_DIR</code>, <code>JAVA_HOME</code>) and more memory than the container’s 3 GB. This was not set up or measured here.</p>
+  </div></div>
+
+  <div class="step"><div class="b">4</div><div>
+    <h3>Choose the target and ask for your version</h3>
+    <p>Start with a small app that you use and miss just one thing in. Ask for a <strong>new</strong> app, with your own name and icon, written from scratch, and with a list at the end of what was left out.</p>
+<pre><span class="s">Based on the analysis, create a NEW app, with its own name and icon (no name, icon,
+text, or code from the manufacturer), that does what &lt;original app&gt; does in &lt;main function&gt;
+and add: playback speed from 0.1x to 4x, in steps of 0.05.
+Write the code from scratch in /work/minha-versao. First, make the smallest working version;
+at the end, list what was left out and what needs manual testing.</span></pre>
+  </div></div>
+
+  <div class="step"><div class="b">5</div><div>
+    <h3>Iterate, one change at a time</h3>
+    <p>The first version usually works for the essentials. The rest is tuning: appearance, export, small errors. One request at a time, testing between each one.</p>
+<pre><span class="s">I opened version 1. What didn’t work: &lt;what you saw, with the error message&gt;.
+Fix only that, run it again, and tell me how to confirm it’s right.</span></pre>
+<pre><span class="s">Stop. Summarize in 5 lines what you’ve tried, what errored, and what the hypothesis is.
+Don’t run anything else until I respond.</span>   <span class="c"># when the agent gets stuck</span></pre>
+  </div></div>
+</div></section>
+<section id="verificar"><div class="wrap">
+  <span class="chip">Checklist</span>
+  <h2>Before saying it worked</h2>
+  <p class="sub">Check each item. If any fail, go to "Troubleshooting".</p>
+  <div class="grid g2">
+    <div class="card"><h3>Environment</h3><ul class="check">
+      <li><strong><code>./dsh status</code></strong> shows local mode, http 200, and <code>/projetos</code> mounted.</li>
+      <li><strong><code>ollama list</code></strong> shows the unrestricted model with the same name as the <code>id</code> in the YAML.</li>
+      <li>The model responds in the panel and can run <code>ls /work</code> (proof that it calls tools).</li>
+      <li><code>npx -y rea-agents@6.4.0 --help</code> runs from inside the agent.</li>
+    </ul></div>
+    <div class="card"><h3>Result</h3><ul class="check">
+      <li>The analysis returned evidence (file and excerpt), not just an opinion.</li>
+      <li>The new app has <strong>your own name and icon</strong> and no files copied from the original.</li>
+      <li>The feature missing from the original really works (manual test).</li>
+      <li>The agent listed what was left out (server, unseen parts).</li>
+    </ul></div>
+  </div>
+</div></section>
+
+<section id="problemas"><div class="wrap">
+  <span class="chip">Troubleshooting</span>
+  <h2>When something gets stuck</h2>
+  <p class="sub">Cases that have already come up on this machine or are described in the REA and dsh documentation.</p>
+  <div class="grid g2">
+    <div class="card"><h3>⏱️ REA stuck</h3><p>REA 6.3.0 got stuck on an app with one huge JS file and ignored SIGTERM: the orphan had to be killed by PID. In 6.4.0, the same app finished. Even so, always run with a limit:</p><pre><span class="c"># on the host (systemd-run + timeout) or in the container (timeout):</span>
+<span class="k">scripts/rea-com-timeout.sh</span> -t 600 -m 6G -- \
+  npx -y rea-agents@6.4.0 analyze-javascript-application /abs/app.asar --json</pre></div>
+    <div class="card"><h3>🧠 Model too small</h3><p>Signs: makes up tool names, repeats the same command, forgets the goal. Switch to a larger one from the table, split the request into smaller parts, and tell the agent to save the analysis summary to a file to reread later. The 32K context fills up quickly with large JSON: ask for a summary, not the whole JSON.</p></div>
+    <div class="card"><h3>🐉 Ghidra / Java</h3><p>REA accepts Ghidra 12.1.x with JDK 21+ (64-bit, with <code>javac</code>). JDK 8 won't work. On Linux ARM64, check the <code>Ghidra/Features/Decompiler/os/linux_arm_64</code> folder. Diagnostics:</p><pre><span class="k">npx -y rea-agents@6.4.0 doctor --provider ghidra --json</span></pre></div>
+    <div class="card"><h3>🔌 dsh doesn't show REA tools</h3><p>Check the path to <code>rea.mjs</code> inside the container, the node <code>command</code> (<code>/usr/local/bin/node</code>), and that <code>cordis.patch.yml</code> isn't empty (a file with only comments causes an error). Check the log:</p><pre><span class="k">docker compose logs --tail=50</span></pre></div>
+    <div class="card"><h3>🧩 Model doesn't appear in the selector</h3><p>The <code>id</code> doesn't match <code>ollama list</code>, or you edited <code>work/.dsh/settings.yaml</code> and <code>./dsh local</code> overwrote it. Edit <code>settings.local.yaml</code> and run <code>./dsh local</code> again.</p></div>
+    <div class="card"><h3>📂 The agent can't find the app</h3><p>The container can only see <code>/work</code> and, in local mode, <code>/projetos</code>. Copy the app (or the <code>.asar</code>) to <code>~/projetos/dsh-sandbox/work/alvos/</code> and use the absolute path from inside the container.</p></div>
+  </div>
+</div></section>
+
+<section id="custos"><div class="wrap">
+  <span class="chip">Costs</span>
+  <h2>Pay-as-you-go cloud or your own machine</h2>
+  <p class="sub">REA, Ghidra, dsh, and Ollama are free. The model is what costs money.</p>
+  <div class="tblw"><table>
+    <thead><tr><th>Scenario</th><th>Cost</th><th>Source</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Unrestricted cloud model (prepaid)</strong></td><td>US$ 4 for the 1st version + US$ 5 to 6 for adjustments</td><td>reference video <span class="tag-no">not measured here</span></td></tr>
+      <tr><td><strong>Local model in Ollama</strong></td><td>R$ 0 per request; machine and electricity only</td><td>no API key</td></tr>
+      <tr><td><strong>Time to the 1st version</strong></td><td>20 to 30 min (cloud); local depends on the model and machine</td><td>reference video <span class="tag-no">not measured here</span></td></tr>
+      <tr><td><strong>Local model memory</strong></td><td>14 to 24 GB (model table); dsh itself uses ~85 MB</td><td>Ollama page + dsh-sandbox measurement</td></tr>
+    </tbody>
+  </table></div>
+</div></section>
+
+<section id="responsavel"><div class="wrap">
+  <span class="chip">Responsible use</span>
+  <h2>"Unrestricted" doesn't mean "no rules"</h2>
+  <p class="sub">Unrestricted means the model doesn't refuse <strong>legitimate</strong> reverse engineering tasks. It doesn't mean anything illegal is allowed.</p>
+  <div class="grid g2">
+    <div class="card"><h3>✅ Allowed</h3><ul class="check">
+      <li>Study a program you own and use to understand how it works.</li>
+      <li>Build your own version for personal use and interoperability (open your files, connect with your tools).</li>
+      <li>Write the code from scratch, with your own name, icon, and look.</li>
+    </ul></div>
+    <div class="card"><h3>⛔ Not allowed</h3><ul class="check">
+      <li>Redistribute the manufacturer's code, icons, text, or trademarks.</li>
+      <li>Sell a copy of a program: that runs into copyright law and the license.</li>
+      <li>Break copy protection, licensing, or DRM, or target a program you have no right to use.</li>
+      <li>Run an unknown binary outside an isolated machine: REA is not a sandbox.</li>
+    </ul></div>
+  </div>
+  <div class="warn">Many software licenses prohibit reverse engineering; laws vary by country. When in doubt, stay on safe ground: your own programs, open source, security challenges, and anything you have permission to analyze.</div>
+</div></section>
+<section id="video"><div class="wrap">
+  <span class="chip">Video</span>
+  <h2>Watch the video</h2>
+  <p class="sub">The video for this guide, with the steps explained.</p>
+  <a class="btn" href="https://inematds.github.io/rea-sem-travas/videos/">▶ Watch the video</a>
+</div></section>
+
+<section id="medido"><div class="wrap">
+  <span class="chip">Transparency</span>
+  <h2>What was measured and what wasn't</h2>
+  <p class="sub">So you know what you can rely on.</p>
+  <div class="tblw"><table>
+    <thead><tr><th>Item</th><th>Status</th><th>Details</th></tr></thead>
+    <tbody>
+      <tr><td><strong>dsh in local mode with Ollama</strong></td><td><span class="tag-ok">measured</span></td><td>Boot ~18 s, ~85 MB idle, <code>qwen3.8:27b</code> ~18–20 GB (dsh-sandbox, 08/2026).</td></tr>
+      <tr><td><strong>REA, JS analysis without Ghidra</strong></td><td><span class="tag-ok">measured</span></td><td>6.3.0: 97 files in 20 s; 6.4.0: 202 JS files in 94.5 s, peak 1.26 GB (Linux ARM, 10–12/10/2026).</td></tr>
+      <tr><td><strong>REA hanging on a huge JS file</strong></td><td><span class="tag-ok">measured</span></td><td>6.3.0 hung and ignored SIGTERM; 6.4.0 finished. The limit with <code>scripts/rea-com-timeout.sh</code> was tested in both modes.</td></tr>
+      <tr><td><strong>Unrestricted models from the table</strong></td><td><span class="tag-no">not measured</span></td><td>Checked on the Ollama page; none downloaded (disk at 98%).</td></tr>
+      <tr><td><strong>REA as MCP inside dsh</strong></td><td><span class="tag-no">not measured</span></td><td>Manual instructions based on the REA and <code>dsh-mcp-client</code> 0.1.1-rc.1 docs.</td></tr>
+      <tr><td><strong>Ghidra on this machine</strong></td><td><span class="tag-no">not measured</span></td><td>Only JDK 8 is available; Ghidra 12.1.x requires JDK 21 and, on ARM64, its own native decompiler.</td></tr>
+      <tr><td><strong>The QuickTime clone, costs, and times</strong></td><td><span class="tag-no">not measured</span></td><td>Numbers from the reference video (macOS, cloud model).</td></tr>
+    </tbody>
+  </table></div>
+</div></section>
+
+<section id="roadmap"><div class="wrap">
+  <span class="chip">Next steps</span>
+  <h2>What remains to be measured</h2>
+  <p class="sub">Open items in this guide, ordered by impact.</p>
+  <div class="phase"><div class="tag">Phase 1</div><div class="d"><strong>Measure an unrestricted model in dsh</strong><span>Download <code>huihui_ai/Qwen3.8-abliterated:27b</code> when disk space is available and run path A in a small Electron app: time, memory, and how many requests until the 1st version.</span></div></div>
+  <div class="phase"><div class="tag">Phase 2</div><div class="d"><strong>REA as MCP in dsh</strong><span>Apply <code>cordis.patch.yml</code>, confirm the <code>mcp__rea__…</code> tools in the panel and <code>toolCallTimeoutMs</code>.</span></div></div>
+  <div class="phase"><div class="tag">Phase 3</div><div class="d"><strong>Ghidra on Linux ARM64</strong><span>JDK 21 + Ghidra 12.1.x with the <code>linux_arm_64</code> decompiler, visible in the container, for native binaries.</span></div></div>
+  <p class="mut" style="margin-top:22px">Previous guide, with the technique, cases, and 6.4.0 retest: <a href="https://inematds.github.io/rea-engenharia-reversa/guia/" target="_blank" rel="noopener">REA, AI-assisted reverse engineering</a> (in Portuguese). REA repository: <a href="https://github.com/morluto/rea" target="_blank" rel="noopener">morluto/rea</a> (MIT, ~147 thousand stars on 12/10/2026).</p>
+</div></section>
+
+<footer>
+  <div class="wrap">
+    <div class="pill">dsh</div><div class="pill">Ollama</div><div class="pill">REA</div><div class="pill">Ghidra</div>
+    <p style="margin-top:18px">REA without limits · open and free content ·
+      <a href="https://github.com/inematds/rea-sem-travas">inematds/rea-sem-travas</a> ·
+      <a href="https://inema.club">INEMA.CLUB</a></p>
+  </div>
+</footer>
+
+<script>
+  (function(){
+    var KEY='rea-sem-travas-theme';
+    var b=document.body, t=document.getElementById('themeToggle');
+    try{ if(localStorage.getItem(KEY)==='light'){ b.classList.add('light'); t.textContent='☀️'; } }catch(e){}
+    t.addEventListener('click',function(){
+      var light=b.classList.toggle('light');
+      t.textContent=light?'☀️':'🌙';
+      try{ localStorage.setItem(KEY, light?'light':'dark'); }catch(e){}
+    });
+  })();
+</script>
+</body>
+</html>
